@@ -1,66 +1,48 @@
-# Bài 2: Cấu hình phân quyền Nhóm và sudoers bằng visudo
+# Bài 2: Quản trị Tường lửa UFW cho Cụm Dịch vụ Multi-port
 
-## Mục tiêu
-- Tạo nhóm người dùng `developers` và thêm user `devuser1`.
-- Phân quyền cho nhóm `developers` thực thi các lệnh quản trị dịch vụ (`systemctl restart nginx`, `systemctl status nginx`) mà không cần mật khẩu qua `sudoers`.
+## 1. Yêu cầu
+Thiết lập tường lửa UFW để chặn tất cả kết nối đến, chỉ cho phép các cổng 22 (SSH), 80 (HTTP), 8082 (Spring Boot), và chặn cổng 3306 (MySQL).
 
----
+## 2. Các lệnh thực hiện
 
-## 1. Khởi tạo Nhóm và Người dùng
+1. **Khai báo các chính sách mặc định:**
+   ```bash
+   sudo ufw default deny incoming
+   sudo ufw default allow outgoing
+   ```
 
+2. **Cho phép các cổng dịch vụ quy định:**
+   ```bash
+   sudo ufw allow 22/tcp
+   sudo ufw allow 80/tcp
+   sudo ufw allow 8082/tcp
+   ```
+
+3. **Kích hoạt UFW:**
+   ```bash
+   sudo ufw enable
+   ```
+
+## 3. Kết quả kiểm tra (Đầu ra lệnh ufw status verbose)
+
+Thực hiện lệnh:
 ```bash
-# Tạo nhóm developers
-sudo groupadd developers
-
-# Tạo user devuser1 và thêm vào nhóm developers
-sudo useradd -m -g developers -s /bin/bash devuser1
-sudo passwd devuser1
+sudo ufw status verbose
 ```
 
----
-
-## 2. Cấu hình Quy tắc Sudoers an toàn bằng `visudo`
-
-Mở trình chỉnh sửa an toàn visudo:
-```bash
-sudo visudo -f /etc/sudoers.d/developers
+**Kết quả:**
 ```
+Status: active
+Logging: on (low)
+Default: deny (incoming), allow (outgoing), disabled (routed)
+New profiles: skip
 
-Thêm quy tắc phân quyền giới hạn (Principle of Least Privilege):
-```text
-# Phân quyền cho nhóm developers thực thi lệnh systemctl liên quan tới nginx mà không cần password
-%developers ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart nginx, /usr/bin/systemctl status nginx, /usr/bin/systemctl reload nginx
+To                         Action      From
+--                         ------      ----
+22/tcp                     ALLOW IN    Anywhere
+80/tcp                     ALLOW IN    Anywhere
+8082/tcp                   ALLOW IN    Anywhere
+22/tcp (v6)                ALLOW IN    Anywhere (v6)
+80/tcp (v6)                ALLOW IN    Anywhere (v6)
+8082/tcp (v6)              ALLOW IN    Anywhere (v6)
 ```
-
----
-
-## 3. Thử nghiệm và Kiểm tra Phân quyền
-
-### Chuyển sang user `devuser1`:
-```bash
-su - devuser1
-```
-
-### Thử nghiệm chạy lệnh được cấp quyền (thành công không hỏi mật khẩu):
-```bash
-$ sudo systemctl status nginx
-● nginx.service - A high performance web server and a reverse proxy server
-     Loaded: loaded (/lib/systemd/system/nginx.service; enabled; vendor preset: enabled)
-     Active: active (running) since Wed 2026-10-07 10:00:00 UTC; 1h ago
-
-$ sudo systemctl restart nginx
-# Thực thi thành công mà không yêu cầu nhập password!
-```
-
-### Thử nghiệm chạy lệnh không được cấp quyền (bị từ chối):
-```bash
-$ sudo systemctl stop docker
-[sudo] password for devuser1: 
-Sorry, user devuser1 is not allowed to execute '/usr/bin/systemctl stop docker' as root on ubuntu-server.
-```
-
----
-
-## 4. Kết luận
-- Việc sử dụng `visudo` giúp đảm bảo cú pháp tệp `/etc/sudoers.d/` chính xác, tránh nguy cơ khóa quyền root của hệ thống.
-- Cấu hình chỉ định chính xác các lệnh cho phép giúp ngăn ngừa việc lạm dụng quyền hạn administrator.
